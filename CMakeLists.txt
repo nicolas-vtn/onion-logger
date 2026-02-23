@@ -9,10 +9,10 @@ if (NOT TARGET onion::datetime)
 endif()
 
 # ---- Library ----
-add_library(onion::logger
+add_library(onion_logger
     "onion/Logger.cpp"
 )
-add_library(onion_logger ALIAS onion::logger)
+add_library(onion::logger ALIAS onion_logger)
 
 target_include_directories(onion_logger
     PUBLIC
