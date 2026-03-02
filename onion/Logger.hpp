@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <fstream>
 #include <streambuf>
 #include <string>
@@ -35,19 +36,42 @@ namespace onion
 			bool m_AtLineStart = true;
 		};
 
+		// ------ Constructors / Destructors ------
 	  public:
 		Logger(const Logger&) = delete;
 		Logger& operator=(const Logger&) = delete;
 
-		Logger(const std::string& logFilePath);
+		Logger(const std::filesystem::path& logFilePath);
+		Logger(const std::filesystem::path& logInfosFilePath, const std::filesystem::path& logErrorsFilePath);
 		~Logger();
 
-	  private:
-		std::string m_LogFilePath;
-		std::ofstream m_LogFile;
+		// ------ Getters / Setters ------
+	  public:
+		void SetLogInfos(bool logInfos);
+		bool GetLogInfos() const;
+		void SetLogInfosFilePath(const std::filesystem::path& filePath);
 
-		TeeBuf m_CoutTee;
-		TeeBuf m_CerrTee;
+		void SetLogErrors(bool logErrors);
+		bool GetLogErrors() const;
+		void SetLogErrorsFilePath(const std::filesystem::path& filePath);
+
+		// ------ Setup / Initializations ------
+	  private:
+		void SetupBuffers();
+
+		// ------ Private Members ------
+	  private:
+		bool m_LogErrors = true;
+		bool m_LogInfos = true;
+
+		std::filesystem::path m_LogInfosFilePath;
+		std::filesystem::path m_LogErrorsFilePath;
+
+		std::ofstream m_LogInfosFile;
+		std::ofstream m_LogErrorsFile;
+
+		std::unique_ptr<TeeBuf> m_CoutTee;
+		std::unique_ptr<TeeBuf> m_CerrTee;
 
 		std::streambuf* m_OldCoutBuf = nullptr;
 		std::streambuf* m_OldCerrBuf = nullptr;

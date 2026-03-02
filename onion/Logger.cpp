@@ -86,22 +86,125 @@ namespace onion
 
 	// ---------------- Logger ----------------
 
-	Logger::Logger(const std::string& logFilePath)
-		: m_LogFilePath(logFilePath), m_LogFile(logFilePath, std::ios::app),
-		  m_CoutTee(std::cout.rdbuf(), m_LogFile.rdbuf(), "LOG", false),
-		  m_CerrTee(std::cerr.rdbuf(), m_LogFile.rdbuf(), "ERR", true)
-	{
-		if (!m_LogFile.is_open())
-			throw std::runtime_error("Failed to open log file: " + logFilePath);
+	Logger::Logger(const std::filesystem::path& logFilePath) : Logger(logFilePath, logFilePath) {}
 
-		m_OldCoutBuf = std::cout.rdbuf(&m_CoutTee);
-		m_OldCerrBuf = std::cerr.rdbuf(&m_CerrTee);
+	Logger::Logger(const std::filesystem::path& logInfosFilePath, const std::filesystem::path& logErrorsFilePath)
+		: m_LogInfosFilePath(logInfosFilePath), m_LogInfosFile(m_LogInfosFilePath, std::ios::app),
+		  m_LogErrorsFilePath(logErrorsFilePath), m_LogErrorsFile(m_LogErrorsFilePath, std::ios::app)
+	{
+		SetupBuffers();
 	}
 
 	Logger::~Logger()
 	{
-		std::cout.rdbuf(m_OldCoutBuf);
-		std::cerr.rdbuf(m_OldCerrBuf);
+		if (m_OldCoutBuf)
+			std::cout.rdbuf(m_OldCoutBuf);
+
+		if (m_OldCerrBuf)
+			std::cerr.rdbuf(m_OldCerrBuf);
+	}
+
+	void Logger::SetLogInfos(bool logInfos)
+	{
+		m_LogInfos = logInfos;
+		SetupBuffers();
+	}
+
+	bool Logger::GetLogInfos() const
+	{
+		return m_LogInfos;
+	}
+
+	void Logger::SetLogInfosFilePath(const std::filesystem::path& filePath)
+	{
+		// Backup the State
+		bool wasLoggingInfos = m_LogInfos;
+
+		// Stop Logging
+		if (wasLoggingInfos)
+		{
+			SetLogInfos(false);
+		}
+
+		// Change the file Buffer
+		m_LogInfosFilePath = filePath;
+		m_LogInfosFile = std::ofstream(m_LogInfosFilePath, std::ios::app);
+
+		// Resume Logging
+		if (wasLoggingInfos)
+		{
+			SetLogInfos(true);
+		}
+	}
+
+	void Logger::SetLogErrors(bool logErrors)
+	{
+		m_LogErrors = logErrors;
+		SetupBuffers();
+	}
+
+	bool Logger::GetLogErrors() const
+	{
+		return m_LogErrors;
+	}
+
+	void Logger::SetLogErrorsFilePath(const std::filesystem::path& filePath)
+	{
+		// Backup the State
+		bool wasLoggingErrors = m_LogErrors;
+
+		// Stop Logging
+		if (wasLoggingErrors)
+		{
+			SetLogErrors(false);
+		}
+
+		// Change the file Buffer
+		m_LogErrorsFilePath = filePath;
+		m_LogErrorsFile = std::ofstream(m_LogErrorsFilePath, std::ios::app);
+
+		// Resume Logging
+		if (wasLoggingErrors)
+		{
+			SetLogErrors(true);
+		}
+	}
+
+	void Logger::SetupBuffers()
+	{
+		// Reset previously initialized buffers if not needed anymore
+		if (!m_LogInfos && m_CoutTee != nullptr)
+		{
+			m_CoutTee.reset();
+			std::cout.rdbuf(m_OldCoutBuf);
+			m_OldCoutBuf = nullptr;
+		}
+
+		if (!m_LogErrors && m_CerrTee != nullptr)
+		{
+			m_CerrTee.reset();
+			std::cerr.rdbuf(m_OldCerrBuf);
+			m_OldCerrBuf = nullptr;
+		}
+
+		// Initialize Buffers
+		if (m_LogInfos && m_CoutTee == nullptr)
+		{
+			m_CoutTee = std::make_unique<TeeBuf>(std::cout.rdbuf(), m_LogInfosFile.rdbuf(), "LOG", false);
+			m_OldCoutBuf = std::cout.rdbuf(m_CoutTee.get());
+
+			if (!m_LogInfosFile.is_open())
+				throw std::runtime_error("Failed to open log file: " + m_LogInfosFilePath.string());
+		}
+
+		if (m_LogErrors && m_CerrTee == nullptr)
+		{
+			m_CerrTee = std::make_unique<TeeBuf>(std::cerr.rdbuf(), m_LogErrorsFile.rdbuf(), "ERR", true);
+			m_OldCerrBuf = std::cerr.rdbuf(m_CerrTee.get());
+
+			if (!m_LogErrorsFile.is_open())
+				throw std::runtime_error("Failed to open log file: " + m_LogErrorsFilePath.string());
+		}
 	}
 
 } // namespace onion

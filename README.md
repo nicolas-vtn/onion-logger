@@ -5,6 +5,8 @@ and duplicates them into a log file.
 
 It automatically prefixes each output line with a timestamp and thread ID.
 
+Can log `std::cout` and `std::cerr` in different files.
+
 ---
 
 ## Features
@@ -12,6 +14,7 @@ It automatically prefixes each output line with a timestamp and thread ID.
 * C++20 compliant
 * Automatically intercepts `std::cout` and `std::cerr`
 * Writes output both to terminal and log file (tee behavior)
+* Configure interception : `std::cerr` and / or `std::cout`
 * Adds timestamp + thread ID prefix per line
 * `std::cerr` lines are printed in red in terminal (ANSI)
 * Log file output remains plain (no colors)
@@ -46,7 +49,10 @@ target_link_libraries(your_target
 
 int main()
 {
-    onion::Logger logger("logs.txt");
+    onion::Logger logger("logs_infos.txt", "logs_errors.txt");
+
+	logger.SetLogInfos(true); // True by default
+	logger.SetLogErrors(true); // True by default
 
     std::cout << "Hello from std::cout" << std::endl;
     std::cerr << "Hello from std::cerr" << std::endl;
