@@ -22,7 +22,10 @@ static void Speak()
 
 int main()
 {
-	onion::Logger logger("./logs.txt");
+	onion::Logger logger1("./logs.txt");
+	//onion::Logger logger2("./logs.txt");
+
+	//logger1.SetAppName("MyApp");
 
 	std::cout << " ---- DEMO LOGGER ----" << std::endl;
 

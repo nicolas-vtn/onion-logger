@@ -13,7 +13,13 @@ namespace onion
 		class TeeBuf : public std::streambuf
 		{
 		  public:
-			TeeBuf(std::streambuf* consoleBuf, std::streambuf* fileBuf, const std::string& level, bool makeConsoleRed);
+			TeeBuf(std::streambuf* consoleBuf,
+				   std::streambuf* fileBuf,
+				   const std::string& level,
+				   const std::string& appName,
+				   bool makeConsoleRed);
+
+			void SetAppName(const std::string& appName) { m_AppName = appName; }
 
 		  protected:
 			int overflow(int c) override;
@@ -31,6 +37,7 @@ namespace onion
 			std::streambuf* m_FileBuf;
 
 			std::string m_Level;
+			std::string m_AppName;
 			bool m_MakeConsoleRed;
 
 			bool m_AtLineStart = true;
@@ -41,12 +48,17 @@ namespace onion
 		Logger(const Logger&) = delete;
 		Logger& operator=(const Logger&) = delete;
 
-		Logger(const std::filesystem::path& logFilePath);
-		Logger(const std::filesystem::path& logInfosFilePath, const std::filesystem::path& logErrorsFilePath);
+		Logger(const std::filesystem::path& logFilePath, const std::string& appName = "");
+		Logger(const std::filesystem::path& logInfosFilePath,
+			   const std::filesystem::path& logErrorsFilePath,
+			   const std::string& appName = "");
 		~Logger();
 
 		// ------ Getters / Setters ------
 	  public:
+		void SetAppName(const std::string& appName);
+		std::string GetAppName() const;
+
 		void SetLogInfos(bool logInfos);
 		bool GetLogInfos() const;
 		void SetLogInfosFilePath(const std::filesystem::path& filePath);
@@ -63,6 +75,8 @@ namespace onion
 	  private:
 		bool m_LogErrors = true;
 		bool m_LogInfos = true;
+
+		std::string m_AppName;
 
 		std::filesystem::path m_LogInfosFilePath;
 		std::filesystem::path m_LogErrorsFilePath;

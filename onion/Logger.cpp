@@ -14,8 +14,10 @@ namespace onion
 	Logger::TeeBuf::TeeBuf(std::streambuf* consoleBuf,
 						   std::streambuf* fileBuf,
 						   const std::string& level,
+						   const std::string& appName,
 						   bool makeConsoleRed)
-		: m_ConsoleBuf(consoleBuf), m_FileBuf(fileBuf), m_Level(level), m_MakeConsoleRed(makeConsoleRed)
+		: m_ConsoleBuf(consoleBuf), m_FileBuf(fileBuf), m_Level(level), m_AppName(appName),
+		  m_MakeConsoleRed(makeConsoleRed)
 	{
 	}
 
@@ -72,7 +74,13 @@ namespace onion
 
 	void Logger::TeeBuf::WritePrefix()
 	{
-		std::string prefix = GetTimestamp() + " [T:" + GetThreadId() + "] : " + m_Level + " : ";
+		std::string prefix;
+		if (m_AppName.empty())
+			prefix = GetTimestamp() + " [T:" + GetThreadId() + "] : " + m_Level + " : ";
+		else
+		{
+			prefix = GetTimestamp() + " [" + m_AppName + "][T:" + GetThreadId() + "] : " + m_Level + " : ";
+		}
 
 		WriteString(m_ConsoleBuf, prefix);
 		WriteString(m_FileBuf, prefix);
@@ -86,11 +94,17 @@ namespace onion
 
 	// ---------------- Logger ----------------
 
-	Logger::Logger(const std::filesystem::path& logFilePath) : Logger(logFilePath, logFilePath) {}
+	Logger::Logger(const std::filesystem::path& logFilePath, const std::string& appName)
+		: Logger(logFilePath, logFilePath, appName)
+	{
+	}
 
-	Logger::Logger(const std::filesystem::path& logInfosFilePath, const std::filesystem::path& logErrorsFilePath)
+	Logger::Logger(const std::filesystem::path& logInfosFilePath,
+				   const std::filesystem::path& logErrorsFilePath,
+				   const std::string& appName)
 		: m_LogInfosFilePath(logInfosFilePath), m_LogInfosFile(m_LogInfosFilePath, std::ios::app),
-		  m_LogErrorsFilePath(logErrorsFilePath), m_LogErrorsFile(m_LogErrorsFilePath, std::ios::app)
+		  m_LogErrorsFilePath(logErrorsFilePath), m_LogErrorsFile(m_LogErrorsFilePath, std::ios::app),
+		  m_AppName(appName)
 	{
 		SetupBuffers();
 	}
@@ -102,6 +116,20 @@ namespace onion
 
 		if (m_OldCerrBuf)
 			std::cerr.rdbuf(m_OldCerrBuf);
+	}
+
+	void Logger::SetAppName(const std::string& appName)
+	{
+		m_AppName = appName;
+		if (m_CoutTee)
+			m_CoutTee->SetAppName(appName);
+		if (m_CerrTee)
+			m_CerrTee->SetAppName(appName);
+	}
+
+	std::string Logger::GetAppName() const
+	{
+		return m_AppName;
 	}
 
 	void Logger::SetLogInfos(bool logInfos)
@@ -190,7 +218,7 @@ namespace onion
 		// Initialize Buffers
 		if (m_LogInfos && m_CoutTee == nullptr)
 		{
-			m_CoutTee = std::make_unique<TeeBuf>(std::cout.rdbuf(), m_LogInfosFile.rdbuf(), "LOG", false);
+			m_CoutTee = std::make_unique<TeeBuf>(std::cout.rdbuf(), m_LogInfosFile.rdbuf(), "LOG", m_AppName, false);
 			m_OldCoutBuf = std::cout.rdbuf(m_CoutTee.get());
 
 			if (!m_LogInfosFile.is_open())
@@ -199,7 +227,7 @@ namespace onion
 
 		if (m_LogErrors && m_CerrTee == nullptr)
 		{
-			m_CerrTee = std::make_unique<TeeBuf>(std::cerr.rdbuf(), m_LogErrorsFile.rdbuf(), "ERR", true);
+			m_CerrTee = std::make_unique<TeeBuf>(std::cerr.rdbuf(), m_LogErrorsFile.rdbuf(), "ERR", m_AppName, true);
 			m_OldCerrBuf = std::cerr.rdbuf(m_CerrTee.get());
 
 			if (!m_LogErrorsFile.is_open())
