@@ -23,9 +23,7 @@ static void Speak()
 int main()
 {
 	onion::Logger logger1("./logs.txt");
-	//onion::Logger logger2("./logs.txt");
-
-	//logger1.SetAppName("MyApp");
+	logger1.SetAppName("logger");
 
 	std::cout << " ---- DEMO LOGGER ----" << std::endl;
 
@@ -33,9 +31,6 @@ int main()
 	std::cerr << "This is a 'std::cerr'" << std::endl;
 
 	std::jthread t1(Speak);
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(450));
-
 	std::jthread t2(Speak);
 
 	return 0;

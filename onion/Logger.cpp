@@ -11,6 +11,9 @@ namespace onion
 {
 	// ---------------- TeeBuf ----------------
 
+	std::mutex Logger::TeeBuf::s_WriteMutex;
+	thread_local std::unordered_map<Logger::TeeBuf*, std::string> Logger::TeeBuf::s_LineBuffers;
+
 	Logger::TeeBuf::TeeBuf(std::streambuf* consoleBuf,
 						   std::streambuf* fileBuf,
 						   const std::string& level,
@@ -36,45 +39,68 @@ namespace onion
 	int Logger::TeeBuf::overflow(int c)
 	{
 		using traits = std::streambuf::traits_type;
+
 		if (traits::eq_int_type(c, traits::eof()))
 			return traits::not_eof(c);
 
-		if (m_AtLineStart)
-		{
-			if (m_MakeConsoleRed)
-				WriteString(m_ConsoleBuf, "\033[31m");
+		char ch = static_cast<char>(c);
 
-			WritePrefix();
-			m_AtLineStart = false;
+		auto& buffer = s_LineBuffers[this];
+		buffer.push_back(ch);
+
+		if (ch == '\n')
+		{
+			std::lock_guard lock(s_WriteMutex);
+
+			if (m_MakeConsoleRed)
+				m_ConsoleBuf->sputn("\033[31m", 5);
+
+			if (m_Level == "LOG")
+			{
+				WritePrefix();
+			}
+
+			m_ConsoleBuf->sputn(buffer.data(), buffer.size());
+			m_FileBuf->sputn(buffer.data(), buffer.size());
+
+			if (m_MakeConsoleRed)
+				m_ConsoleBuf->sputn("\033[0m", 4);
+
+			buffer.clear();
 		}
 
-		const int r1 = m_ConsoleBuf->sputc(c);
-		const int r2 = m_FileBuf->sputc(c);
-
-		if (c == '\n')
-		{
-			if (m_MakeConsoleRed)
-				WriteString(m_ConsoleBuf, "\033[0m");
-
-			m_AtLineStart = true;
-
-			m_ConsoleBuf->pubsync();
-			m_FileBuf->pubsync();
-		}
-
-		return (r1 == EOF || r2 == EOF) ? EOF : c;
+		return c;
 	}
 
 	int Logger::TeeBuf::sync()
 	{
-		int const r1 = m_ConsoleBuf->pubsync();
-		int const r2 = m_FileBuf->pubsync();
-		return (r1 == 0 && r2 == 0) ? 0 : -1;
+		auto& buffer = s_LineBuffers[this];
+
+		if (buffer.empty())
+			return 0;
+
+		std::lock_guard lock(s_WriteMutex);
+
+		if (m_MakeConsoleRed)
+			m_ConsoleBuf->sputn("\033[31m", 5);
+
+		WritePrefix();
+
+		m_ConsoleBuf->sputn(buffer.data(), buffer.size());
+		m_FileBuf->sputn(buffer.data(), buffer.size());
+
+		if (m_MakeConsoleRed)
+			m_ConsoleBuf->sputn("\033[0m", 4);
+
+		buffer.clear();
+
+		return 0;
 	}
 
 	void Logger::TeeBuf::WritePrefix()
 	{
 		std::string prefix;
+
 		if (m_AppName.empty())
 			prefix = GetTimestamp() + " [T:" + GetThreadId() + "] : " + m_Level + " : ";
 		else
@@ -82,14 +108,8 @@ namespace onion
 			prefix = GetTimestamp() + " [" + m_AppName + "][T:" + GetThreadId() + "] : " + m_Level + " : ";
 		}
 
-		WriteString(m_ConsoleBuf, prefix);
-		WriteString(m_FileBuf, prefix);
-	}
-
-	void Logger::TeeBuf::WriteString(std::streambuf* buf, const std::string& str)
-	{
-		for (char ch : str)
-			buf->sputc(ch);
+		m_ConsoleBuf->sputn(prefix.data(), prefix.size());
+		m_FileBuf->sputn(prefix.data(), prefix.size());
 	}
 
 	// ---------------- Logger ----------------

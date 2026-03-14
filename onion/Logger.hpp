@@ -2,8 +2,11 @@
 
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <streambuf>
 #include <string>
+#include <thread>
+#include <unordered_map>
 
 namespace onion
 {
@@ -30,7 +33,6 @@ namespace onion
 			static std::string GetThreadId();
 
 			void WritePrefix();
-			static void WriteString(std::streambuf* buf, const std::string& str);
 
 		  private:
 			std::streambuf* m_ConsoleBuf;
@@ -41,6 +43,9 @@ namespace onion
 			bool m_MakeConsoleRed;
 
 			bool m_AtLineStart = true;
+
+			static std::mutex s_WriteMutex;
+			thread_local static std::unordered_map<TeeBuf*, std::string> s_LineBuffers;
 		};
 
 		// ------ Constructors / Destructors ------
